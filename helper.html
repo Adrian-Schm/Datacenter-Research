@@ -1,0 +1,1542 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Data Center Project Helper</title>
+<style>
+  :root {
+    --bg: #fafaf7;
+    --surface: #ffffff;
+    --surface-2: #f3f1ea;
+    --border: #e3e0d6;
+    --border-strong: #cdc9bb;
+    --text: #1a1a18;
+    --text-2: #5a5852;
+    --text-3: #8b8980;
+    --accent: #185fa5;
+    --accent-bg: #e6f1fb;
+    --accent-text: #0c447c;
+    --success-bg: #eaf3de;
+    --success-text: #3b6d11;
+    --danger: #a32d2d;
+  }
+  * { box-sizing: border-box; }
+  [hidden] { display: none !important; }
+  html { height: 100%; }
+  body { margin: 0; padding: 0; background: var(--bg); color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+    font-size: 14px; line-height: 1.45;
+    height: 100vh; overflow: hidden; display: flex; flex-direction: column; }
+  header { display: flex; align-items: center; justify-content: space-between;
+    padding: 14px 22px; border-bottom: 0.5px solid var(--border); background: var(--surface);
+    flex-shrink: 0; }
+  header h1 { font-size: 15px; font-weight: 500; margin: 0; }
+  header .sub { font-size: 12px; color: var(--text-2); margin-top: 2px; }
+  .header-actions { display: flex; gap: 10px; align-items: center; }
+  #file-status { font-size: 12px; color: var(--text-2); }
+  .save-indicator { font-size: 11.5px; color: var(--success-text);
+    opacity: 0; transition: opacity 0.15s; pointer-events: none; }
+  .save-indicator.show { opacity: 1; }
+  button { background: var(--surface); border: 0.5px solid var(--border-strong); border-radius: 8px;
+    padding: 7px 12px; font-size: 13px; cursor: pointer; color: var(--text); transition: background 0.1s;
+    font-family: inherit; }
+  button:hover { background: var(--surface-2); }
+  button:active { transform: scale(0.985); }
+  button.primary { background: var(--accent); color: white; border-color: var(--accent); }
+  button.primary:hover { background: #134d87; }
+  button.ghost { border-color: transparent; padding: 4px 7px; color: var(--text-3); }
+  button.ghost:hover { background: var(--surface-2); color: var(--text); }
+  button.small { padding: 4px 10px; font-size: 12px; }
+
+  #empty-state { flex: 1; padding: 22px; color: var(--text-2);
+    display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; }
+  #empty-state > * { max-width: 520px; width: 100%; }
+  #empty-state h2 { font-weight: 500; font-size: 22px; color: var(--text); margin: 0 0 10px; }
+  #empty-state h2.continue { font-weight: 700; }
+  #empty-state p { margin: 8px 0 18px; font-size: 13px; }
+  #empty-state .big-load { font-size: 15px; padding: 11px 24px; border-radius: 10px;
+    box-shadow: 0 2px 10px rgba(24,95,165,0.18); width: auto; }
+
+  #drop-zone { border: 2px dashed var(--border-strong); border-radius: 14px;
+    padding: 32px 28px 24px; background: var(--surface);
+    transition: border-color .15s, background .15s, transform .1s;
+    cursor: pointer; outline: none; }
+  #drop-zone:hover { border-color: var(--accent); }
+  #drop-zone:focus-visible { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-bg); }
+  #drop-zone.drag-over { border-color: var(--accent); background: var(--accent-bg);
+    transform: scale(1.01); }
+  #drop-zone .dz-icon { font-size: 30px; color: var(--text-3); line-height: 1;
+    margin-bottom: 6px; }
+  #drop-zone.drag-over .dz-icon { color: var(--accent); }
+  #drop-zone .dz-hint { font-size: 11.5px; color: var(--text-3); margin-top: 14px; }
+
+  #how-it-works { list-style: none; padding: 0; margin: 22px 0 0; counter-reset: step;
+    display: grid; gap: 8px; text-align: left; }
+  #how-it-works li { position: relative; padding: 10px 14px 10px 40px;
+    background: var(--surface); border: 0.5px solid var(--border); border-radius: 10px;
+    font-size: 13px; color: var(--text-2); counter-increment: step; line-height: 1.45; }
+  #how-it-works li::before { content: counter(step); position: absolute; left: 11px; top: 9px;
+    width: 20px; height: 20px; border-radius: 50%; background: var(--accent-bg);
+    color: var(--accent-text); font-size: 11px; font-weight: 700;
+    display: flex; align-items: center; justify-content: center; }
+  #how-it-works li b { color: var(--text); font-weight: 600; }
+
+  main { display: grid; grid-template-columns: 340px minmax(0, 1fr); gap: 14px; padding: 14px 22px;
+    max-width: 1320px; margin: 0 auto; width: 100%;
+    flex: 1; min-height: 0; overflow: hidden; position: relative; }
+
+  /* Sidebar toggle button — only meaningful once a sheet is loaded. */
+  #toggle-sidebar { display: none; align-items: center; gap: 5px; }
+  body.sheet-loaded #toggle-sidebar { display: inline-flex; }
+
+  /* === Wide-screen collapsed sidebar (user clicked toggle) === */
+  body.sidebar-closed main { grid-template-columns: minmax(0, 1fr); }
+  body.sidebar-closed #sidebar { display: none; }
+
+  /* === Narrow viewports (split-view, half-screen, mobile) === */
+  /* Sidebar becomes a fixed overlay that slides in from the left. */
+  #sidebar-backdrop { display: none; }
+  @media (max-width: 900px) {
+    main { grid-template-columns: minmax(0, 1fr); padding: 10px 14px; }
+    #sidebar {
+      position: fixed; top: 0; left: 0; bottom: 0;
+      width: min(340px, 86vw);
+      z-index: 50;
+      border-radius: 0;
+      border-right: 0.5px solid var(--border);
+      box-shadow: 4px 0 16px rgba(0,0,0,0.18);
+      transform: translateX(-100%);
+      transition: transform .2s ease-out;
+      display: flex !important;
+    }
+    body:not(.sidebar-closed) #sidebar { transform: translateX(0); }
+    body:not(.sidebar-closed).sheet-loaded #sidebar-backdrop {
+      display: block; position: fixed; inset: 0;
+      background: rgba(0,0,0,0.30); z-index: 40;
+    }
+    header { padding: 10px 14px; }
+    header h1 { font-size: 18px; }
+    header .sub { display: none; }
+  }
+
+  #sidebar { background: var(--surface); border: 0.5px solid var(--border); border-radius: 10px;
+    padding: 0; overflow: hidden; height: 100%; min-height: 0;
+    display: flex; flex-direction: column; }
+  .tab-bar { display: flex; border-bottom: 0.5px solid var(--border); padding: 4px 4px 0; gap: 2px;
+    background: var(--surface-2); flex-shrink: 0; }
+  .tab-btn { flex: 1; background: transparent; border: 0.5px solid transparent; border-bottom: 0;
+    border-radius: 6px 6px 0 0; padding: 7px 6px;
+    font-size: 12px; color: var(--text-2); cursor: pointer; font-family: inherit;
+    position: relative; top: 0.5px; }
+  .tab-btn:hover { background: var(--surface); }
+  .tab-btn.active { background: var(--surface); color: var(--text); font-weight: 500;
+    border-color: var(--border); }
+  .tab-btn .count { color: var(--text-3); font-weight: 400; margin-left: 3px; font-size: 11px; }
+  .tab-btn.active .count { color: var(--text-2); }
+  .search-row { padding: 8px 8px 6px; background: var(--surface); flex-shrink: 0;
+    border-bottom: 0.5px solid var(--border); }
+  .search-row input { width: 100%; padding: 6px 10px; font-size: 12.5px;
+    border: 0.5px solid var(--border-strong); border-radius: 6px; background: var(--surface-2);
+    font-family: inherit; color: var(--text); }
+  .search-row input:focus { outline: none; border-color: var(--accent);
+    box-shadow: 0 0 0 2px rgba(24,95,165,0.12); background: white; }
+  .search-row input::placeholder { color: var(--text-3); }
+  .sidebar-list { padding: 6px; flex: 1; min-height: 0; overflow-y: auto; }
+  .sidebar-list .section-header { display: flex; justify-content: space-between;
+    font-size: 11px; color: var(--text-3); text-transform: uppercase; letter-spacing: 0.04em;
+    padding: 10px 9px 6px; }
+  .sidebar-list .empty-tab { font-size: 12px; color: var(--text-3); padding: 16px 12px; text-align: center;
+    line-height: 1.4; }
+  .proj { padding: 8px 9px 10px; border-radius: 6px; cursor: pointer;
+    border-bottom: 0.5px solid var(--border); }
+  .proj:last-child { border-bottom: 0; }
+  .proj:hover { background: var(--surface-2); }
+  .proj.active { background: var(--accent-bg); }
+  .proj.active .pname { color: var(--accent-text); font-weight: 500; }
+  .proj.active .pmeta { color: var(--accent-text); opacity: 0.85; }
+  .pname { font-size: 13px; }
+  .pmeta { font-size: 10.5px; color: var(--text-2); margin-top: 2px;
+    display: flex; justify-content: space-between; align-items: center; gap: 6px; }
+  .pmeta .editing-tag { font-size: 10px; color: var(--accent-text); background: white;
+    padding: 1px 7px; border-radius: 999px; border: 0.5px solid var(--accent); }
+  .proj.active .pmeta .editing-tag { background: white; }
+  .done-check { color: var(--success-text); font-weight: 500; }
+  .pbar { margin-top: 6px; height: 4px; background: var(--surface-2); border-radius: 999px;
+    overflow: hidden; }
+  .pbar-fill { height: 100%; border-radius: 999px; transition: width 0.2s, background-color 0.2s; }
+
+  #form-panel { background: var(--surface); border: 0.5px solid var(--border); border-radius: 10px;
+    padding: 0 20px 18px; overflow-y: auto; height: 100%; min-height: 0; }
+  .form-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px;
+    padding: 16px 0 12px; border-bottom: 0.5px solid var(--border); gap: 12px;
+    position: sticky; top: 0; background: var(--surface); z-index: 5; }
+  .form-header .fh-left { flex: 1; min-width: 0; }
+  .form-header h2 { font-size: 16px; font-weight: 500; margin: 0; }
+  .form-header h2 input { font-size: 16px; font-weight: 500; padding: 4px 8px; width: 100%; max-width: 480px;
+    font-family: inherit; border: 0.5px solid var(--border-strong); border-radius: 6px; background: white; }
+  .form-header .fh-right { display: flex; gap: 8px; align-items: center; flex-shrink: 0; flex-wrap: wrap;
+    justify-content: flex-end; }
+  .badge { font-size: 11px; padding: 3px 9px; border-radius: 6px; background: var(--surface-2); color: var(--text-2); }
+  .badge.editing { background: var(--accent-bg); color: var(--accent-text); }
+
+  h3.section-title { font-size: 12.5px; color: var(--text); text-transform: uppercase; letter-spacing: 0.06em;
+    font-weight: 700; margin: 20px 0 10px; padding-bottom: 4px; border-bottom: 0.5px solid var(--border); }
+
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 14px; }
+  .field { display: flex; flex-direction: column; }
+  .field label { font-size: 12px; color: var(--text); font-weight: 600; margin-bottom: 3px; }
+  .field .hint { font-size: 11px; color: var(--text-3); margin-bottom: 4px; line-height: 1.35; }
+  .field .hint-after { font-size: 11px; color: var(--text-3); margin-top: 3px; line-height: 1.35; }
+  .field input, .field select, .field textarea {
+    width: 100%; padding: 6px 9px; font-size: 13px;
+    border: 0.5px solid var(--border-strong); border-radius: 6px; background: white;
+    font-family: inherit;
+  }
+  .field input:focus, .field select:focus, .field textarea:focus {
+    outline: none; border-color: var(--accent); box-shadow: 0 0 0 2px rgba(24,95,165,0.12);
+  }
+  .field input[readonly] { background: var(--surface-2); color: var(--text-2); }
+  .field textarea { resize: vertical; min-height: 60px; line-height: 1.4; font-family: inherit; }
+
+  .checks { display: flex; flex-wrap: wrap; gap: 6px; }
+  .check { display: inline-flex; align-items: center; gap: 5px; font-size: 12px;
+    padding: 4px 9px; border-radius: 999px; border: 0.5px solid var(--border-strong);
+    background: white; cursor: pointer; user-select: none; }
+  .check input { display: none; }
+  .check.on { background: var(--accent-bg); border-color: var(--accent); color: var(--accent-text); }
+
+  .timeline-event { background: var(--surface-2); border-radius: 8px; padding: 10px 12px; margin-bottom: 8px; }
+  .timeline-event .te-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
+  .timeline-event .te-title { font-size: 12.5px; font-weight: 500; }
+  .timeline-event.proposal .te-title { color: var(--accent-text); }
+  .timeline-grid { display: grid; grid-template-columns: 4fr 1fr 1.5fr; gap: 6px; }
+  .timeline-grid input { font-family: inherit; padding: 6px 9px; font-size: 13px;
+    border: 0.5px solid var(--border-strong); border-radius: 6px; background: white; }
+
+  .source-entry { background: var(--surface-2); border-radius: 8px; padding: 10px 12px; margin-bottom: 8px; }
+  .source-entry .se-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
+  .source-entry .se-title { font-size: 12.5px; font-weight: 500; }
+  .source-entry input { width: 100%; padding: 6px 9px; font-size: 13px;
+    border: 0.5px solid var(--border-strong); border-radius: 6px; background: white;
+    font-family: inherit; }
+
+  .map-preview { margin-top: 4px; border: 0.5px solid var(--border); border-radius: 8px;
+    overflow: hidden; background: var(--surface-2); }
+  .map-preview iframe { width: 100%; height: 200px; border: 0; display: block; }
+  .map-preview .mp-foot { font-size: 11px; color: var(--text-3); padding: 6px 10px;
+    border-top: 0.5px solid var(--border); display: flex; justify-content: space-between; align-items: center; }
+  .map-preview .mp-foot a { color: var(--accent-text); text-decoration: none; }
+  .map-preview .mp-foot a:hover { text-decoration: underline; }
+
+  .inline-previews { margin-top: 22px; padding-top: 16px; border-top: 0.5px solid var(--border);
+    display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 12px; }
+  .preview-card { background: var(--surface-2); border: 0.5px solid var(--border); border-radius: 8px;
+    padding: 10px 12px; min-width: 0; overflow: hidden; }
+  .preview-card .pc-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; gap: 8px; }
+  .preview-card .pc-label { font-size: 11px; color: var(--text-3); text-transform: uppercase; letter-spacing: 0.04em; }
+  .preview-card .pc-content { font-family: inherit; font-size: 11.5px; color: var(--text-2);
+    background: white; padding: 7px 9px; border-radius: 6px; overflow-x: auto; white-space: nowrap;
+    max-width: 100%; }
+
+  .toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
+    background: var(--text); color: white; padding: 8px 14px; border-radius: 8px; font-size: 13px;
+    opacity: 0; transition: opacity 0.2s; pointer-events: none; z-index: 100; }
+  .toast.show { opacity: 1; }
+
+  .helpbox { background: var(--accent-bg); border: 0.5px solid #b5d4f4; border-radius: 8px;
+    padding: 10px 12px; font-size: 12px; color: var(--accent-text); margin-bottom: 12px; }
+  .helpbox b { font-weight: 500; }
+
+  #banner-stack { position: fixed; bottom: 14px; right: 14px; z-index: 1000;
+    display: flex; flex-direction: column-reverse; gap: 6px; pointer-events: none;
+    max-width: 360px; }
+  .top-banner { padding: 8px 10px 8px 12px;
+    border: 0.5px solid; border-radius: 8px; font-family: inherit; font-size: 12px;
+    white-space: pre-wrap; max-height: 160px; overflow-y: auto;
+    display: flex; align-items: flex-start; gap: 8px; pointer-events: auto; line-height: 1.4;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
+  .top-banner.error { background: #fff1f1; color: #791f1f; border-color: #f0c0c0; }
+  .top-banner.ok    { background: #eaf3de; color: #3b6d11; border-color: #c5dca0; }
+  .top-banner.info  { background: #e6f1fb; color: #0c447c; border-color: #b5d4f4; }
+  .top-banner .tb-msg { flex: 1; }
+  .top-banner .tb-close { background: transparent; border: 0; color: inherit; font-size: 14px;
+    cursor: pointer; padding: 0 4px; line-height: 1; opacity: 0.6; font-family: inherit; }
+  .top-banner .tb-close:hover { opacity: 1; }
+</style>
+</head>
+<body>
+
+<header>
+  <div>
+    <h1>Project research helper</h1>
+    <div class="sub">Pick a project, fill or edit the row, paste back to the sheet</div>
+  </div>
+  <div class="header-actions">
+    <button id="toggle-sidebar" class="ghost" type="button" aria-label="Toggle projects list" aria-expanded="true" title="Show or hide the projects list">☰ Projects</button>
+    <span id="save-indicator" class="save-indicator">Saved locally</span>
+    <span id="file-status">No sheet loaded</span>
+    <input type="file" id="file-input" accept=".xlsx" hidden>
+    <button id="load-btn" class="primary">Load sheet</button>
+    <button id="reset-all-local" class="ghost small" title="Reset every locally-saved edit across all projects (asks to confirm)">Reset all</button>
+  </div>
+</header>
+
+<div id="empty-state">
+  <div id="drop-zone" tabindex="0" role="button" aria-label="Drop your .xlsx file here or click to pick one">
+    <div class="dz-icon" aria-hidden="true">⤓</div>
+    <h2 id="empty-title">Load your database to begin</h2>
+    <p>Drag your <code>.xlsx</code> here, or click to pick one.</p>
+    <button id="load-btn-big" class="primary big-load">Choose file</button>
+    <div class="dz-hint">Sheets should be paired: main sheet first, then its timeline sheet.</div>
+  </div>
+  <ol id="how-it-works">
+    <li><b>Drop your sheet.</b> The tool reads it in your browser — nothing leaves your computer.</li>
+    <li><b>Edit a project.</b> Pick one from the sidebar, fill or fix fields, add timeline events.</li>
+    <li><b>Paste back to Excel.</b> Click Copy row, paste into the main sheet. Click Copy column for the paired timeline sheet.</li>
+  </ol>
+</div>
+
+<div id="sidebar-backdrop" aria-hidden="true"></div>
+<main id="main" hidden>
+  <aside id="sidebar">
+    <div class="tab-bar" id="tab-bar"></div>
+    <div class="search-row"><input id="sidebar-search" type="search" placeholder="Search projects…" autocomplete="off"></div>
+    <div class="sidebar-list" id="sidebar-list"></div>
+  </aside>
+  <section id="form-panel"></section>
+</main>
+
+<div id="banner-stack"></div>
+<div id="toast" class="toast"></div>
+
+<script>
+(function(){
+  function makeBanner(msg, kind, autoMs) {
+    const stack = document.getElementById('banner-stack');
+    if (!stack) return;
+    const wrap = document.createElement('div');
+    wrap.className = 'top-banner ' + (kind || 'info');
+    const m = document.createElement('div');
+    m.className = 'tb-msg';
+    m.textContent = msg;
+    const x = document.createElement('button');
+    x.className = 'tb-close';
+    x.type = 'button';
+    x.title = 'Dismiss';
+    x.textContent = '✕';
+    x.onclick = () => wrap.remove();
+    wrap.appendChild(m);
+    wrap.appendChild(x);
+    stack.appendChild(wrap);
+    if (autoMs && autoMs > 0) {
+      setTimeout(() => { if (wrap.parentNode) wrap.remove(); }, autoMs);
+    }
+    return wrap;
+  }
+  // Errors stay until dismissed; OK/info fade after a few seconds.
+  window.__showError = function(msg) { return makeBanner(msg, 'error'); };
+  window.__showOk    = function(msg) { return makeBanner(msg, 'ok',   4500); };
+  window.__showInfo  = function(msg) { return makeBanner(msg, 'info', 4500); };
+  window.addEventListener('error', function(e) {
+    window.__showError('JS error: ' + e.message + ' at ' + (e.filename || '?') + ':' + e.lineno);
+  });
+  window.addEventListener('unhandledrejection', function(e) {
+    window.__showError('Promise rejection: ' + (e.reason && e.reason.message ? e.reason.message : e.reason));
+  });
+})();
+</script>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"
+  onerror="window.__showError && window.__showError('Could not load SheetJS from cdnjs.cloudflare.com — check your internet connection or any firewall / browser extension blocking the CDN.')"></script>
+
+<script>
+if (typeof XLSX === 'undefined') {
+  window.__showError && window.__showError('SheetJS (XLSX) is not loaded. The CDN script may have been blocked.');
+}
+</script>
+
+<script>
+// ===== Schema =====
+// PF (Philly Fed) is the canonical column order. Any sheet that follows this layout works.
+const PF_COLUMNS = [
+  { key: 'project',          label: 'Project' },
+  { key: 'company',          label: 'Company' },
+  { key: 'investment',       label: 'Investment ($B)' },
+  { key: 'state',            label: 'State' },
+  { key: 'county',           label: 'County' },
+  { key: 'nearby',           label: 'Nearby Communities' },
+  { key: 'capacity',         label: 'Energy Capacity (MW)' },
+  { key: 'acreage',          label: 'Acreage' },
+  { key: 'timeline_start',   label: 'Timeline - Start' },
+  { key: 'timeline_end',     label: 'Timeline - End' },
+  { key: 'status',           label: 'Status' },
+  { key: 'resource_claims',  label: 'Resource Usage Claims' },
+  { key: 'energy_sources',   label: 'Energy Sources' },
+  { key: 'developer_promises', label: 'Developer Promises' },
+  { key: 'concern_categories', label: 'Comm. Concerns - Categories' },
+  { key: 'articulated_concerns', label: 'Articulated Concerns' },
+  { key: 'action_posture',   label: 'Comm. Action - Posture' },
+  { key: 'action_intensity', label: 'Comm. Action - Intensity' },
+  { key: 'action_details',   label: 'Comm. Action - Details' },
+  { key: 'developer_action', label: 'Developer Action' },
+  { key: 'latitude',         label: 'Latitude' },
+  { key: 'longitude',        label: 'Longitude' },
+  { key: 'source_0',         label: 'SOURCES:' },
+  { key: 'source_proposal',  label: 'Project Proposal' },
+  { key: 'source_govt',      label: 'Govt Records' },
+  { key: 'source_3',         label: 'Source 3' },
+  { key: 'source_4',         label: 'Source 4' },
+  { key: 'source_5',         label: 'Source 5' },
+];
+
+const SOURCE_KEYS = ['source_0', 'source_proposal', 'source_govt', 'source_3', 'source_4', 'source_5'];
+
+// Canonical status list. The dropdown shows these 9 in this exact order. If a
+// loaded project's sheet value doesn't match one of these, the select renderer
+// adds it as a fallback option so the original value still round-trips until
+// the user picks a canonical replacement.
+const STATUS_VALUES = ['Proposed', 'Planned', 'Planned/Restarted',
+  'In Progress', 'In Progress/Delayed', 'Paused',
+  'Cancelled/Denied', 'Cancelled/Withdrawn', 'Completed'];
+const POSTURE_VALUES = ['Neutral', 'Negative', 'Positive'];
+const INTENSITY_VALUES = ['None', 'Low', 'Moderate', 'High'];
+const CONCERN_CATEGORIES = ['Land', 'Water', 'Electricity', 'Climate',
+  'Individual economic', 'Governmental economic', 'QOL'];
+const US_STATES = ['AL','AK','AZ','AR','CA','CO','CT','DE','FL','GA','HI','ID','IL','IN','IA',
+  'KS','KY','LA','ME','MD','MA','MI','MN','MS','MO','MT','NE','NV','NH','NJ','NM','NY','NC',
+  'ND','OH','OK','OR','PA','RI','SC','SD','TN','TX','UT','VT','VA','WA','WV','WI','WY','DC'];
+
+// ===== State =====
+let projects = []; // { region, sourceRow, name, data:{}, timeline:[], sources:[], editing }
+let selected = null;
+let activeTab = null; // set to first region after load, or 'editing' / 'completed'
+let searchQuery = '';
+
+function shortRegionLabel(r) {
+  if (/philadelphia/i.test(r)) return 'Philly Fed';
+  if (/nc\s*va|nc[\/\\\s-]+va/i.test(r)) return 'NC / VA';
+  return r;
+}
+function uniqueRegions() {
+  const out = [];
+  for (const p of projects) if (!out.includes(p.region)) out.push(p.region);
+  return out;
+}
+// Dropdown is the fixed canonical STATUS_VALUES list. The per-project select
+// renderer (#f-status) handles the case where the loaded sheet value isn't
+// canonical by appending it as a fallback so it still shows up selected.
+function statusOptions() {
+  return STATUS_VALUES.slice();
+}
+
+// ===== Local edit persistence =====
+const LS_KEY = 'dc-helper-edits-v1';
+function loadAllEdits() {
+  try { return JSON.parse(localStorage.getItem(LS_KEY) || '{}'); } catch { return {}; }
+}
+function saveAllEdits(obj) {
+  try { localStorage.setItem(LS_KEY, JSON.stringify(obj)); } catch (e) { console.warn('localStorage save failed', e); }
+}
+function hasAnyEdits() {
+  const obj = loadAllEdits();
+  return Object.keys(obj).length > 0;
+}
+function projectKey(p) { return stripStar(p.name); }
+function persistSelected() {
+  if (!selected) return;
+  const all = loadAllEdits();
+  all[projectKey(selected)] = {
+    name: selected.name,
+    data: selected.data,
+    timeline: selected.timeline,
+    sources: selected.sources,
+    editing: selected.editing,
+    completed: selected.completed,
+    savedAt: new Date().toISOString(),
+  };
+  saveAllEdits(all);
+  flashStatus('Saved locally');
+}
+function applyEdits(p, edits) {
+  if (!edits) return;
+  if (edits.name) p.name = edits.name;
+  if (edits.data) {
+    for (const k in edits.data) {
+      if (edits.data[k] != null && edits.data[k] !== '') p.data[k] = edits.data[k];
+    }
+  }
+  if (edits.timeline && Array.isArray(edits.timeline) && edits.timeline.length > 0) {
+    p.timeline = edits.timeline;
+  }
+  if (Array.isArray(edits.sources) && edits.sources.length > 0) {
+    p.sources = edits.sources;
+  }
+  if (edits.editing) p.editing = true;
+  if (edits.completed) p.completed = true;
+}
+function clearEditsForSelected() {
+  if (!selected) return;
+  const all = loadAllEdits();
+  delete all[projectKey(selected)];
+  saveAllEdits(all);
+}
+let saveTimer = null;
+function scheduleSave() {
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(persistSelected, 350);
+}
+function flashStatus(msg) {
+  const el = document.getElementById('save-indicator');
+  if (!el) return;
+  el.textContent = msg;
+  el.classList.add('show');
+  clearTimeout(flashStatus._h);
+  flashStatus._h = setTimeout(() => el.classList.remove('show'), 1400);
+}
+function markEditing() {
+  if (!selected) return;
+  // If the project was marked researched, editing a field un-marks it.
+  const stateChanged = !selected.editing || selected.completed;
+  selected.editing = true;
+  selected.completed = false;
+  if (stateChanged) {
+    renderSidebar();
+    renderFormHeader();
+  }
+  scheduleSave();
+}
+
+// ===== Helpers =====
+function fmtDate(v) {
+  if (v == null || v === '') return '';
+  if (v instanceof Date) {
+    const y = v.getFullYear(), m = String(v.getMonth()+1).padStart(2,'0'), d = String(v.getDate()).padStart(2,'0');
+    return `${y}-${m}-${d}`;
+  }
+  return String(v).trim();
+}
+function fmtCell(v) {
+  if (v == null) return '';
+  if (v instanceof Date) return fmtDate(v);
+  return String(v).trim();
+}
+function stripStar(s) { return s.replace(/^[✱★✶*]\s*/, '').trim(); }
+function looksLikeNote(name) {
+  const n = name.toLowerCase();
+  return n.startsWith('look at') || n.startsWith('add grouping') ||
+    n.startsWith('todo') || n.startsWith('note:');
+}
+function countFilled(p) {
+  let n = 0;
+  for (const c of PF_COLUMNS) {
+    if (c.key === 'project') continue;                 // title is excluded
+    if (SOURCE_KEYS.includes(c.key)) continue;         // counted via sources array
+    const v = p.data[c.key];
+    if (v != null && String(v).trim() !== '') n++;
+  }
+  if (Array.isArray(p.sources)) {
+    for (const s of p.sources) if (s && String(s).trim()) n++;
+  }
+  return n;
+}
+function totalFields(p) {
+  // Non-source non-title columns + at least one source slot (so an empty form
+  // doesn't show 0/0).
+  const base = PF_COLUMNS.length - 1 - SOURCE_KEYS.length;
+  const srcSlots = Math.max(1, Array.isArray(p.sources) ? p.sources.length : 1);
+  return base + srcSlots;
+}
+function progressPct(p) {
+  const t = totalFields(p);
+  if (t === 0) return 0;
+  return Math.min(100, Math.round((countFilled(p) / t) * 100));
+}
+function progressColor(pct) {
+  if (pct < 25) return '#d8553a'; // red
+  if (pct < 50) return '#e08530'; // orange
+  if (pct < 75) return '#dcb327'; // yellow
+  if (pct < 95) return '#9bbf3e'; // light green
+  return '#3b9d4a';               // green
+}
+// "Completed" in this app means research is complete — every field is filled in,
+// OR the user has explicitly marked the project as researched.
+// This is independent of the project's DC Status field (Proposed / In Progress / etc).
+function isCompleted(p) {
+  return p.completed === true || progressPct(p) >= 100;
+}
+
+// ===== Load workbook =====
+const fileInput = document.getElementById('file-input');
+const loadBtn = document.getElementById('load-btn');
+const loadBtnBig = document.getElementById('load-btn-big');
+loadBtn.onclick = () => fileInput.click();
+if (loadBtnBig) loadBtnBig.onclick = (e) => { e.stopPropagation(); fileInput.click(); };
+
+function readXlsxFile(f) {
+  if (!f) return;
+  if (!/\.xlsx$/i.test(f.name)) {
+    window.__showError('Please pick a .xlsx file (got "' + f.name + '").');
+    return;
+  }
+  const reader = new FileReader();
+  reader.onload = (ev) => {
+    try {
+      const data = new Uint8Array(ev.target.result);
+      const wb = XLSX.read(data, { type: 'array', cellDates: true });
+      loadWorkbook(wb, f.name);
+    } catch (err) {
+      window.__showError('Could not read file: ' + err.message);
+    }
+  };
+  reader.readAsArrayBuffer(f);
+}
+fileInput.onchange = (e) => readXlsxFile(e.target.files[0]);
+
+// Drag-and-drop on the empty-state drop zone. Clicking the zone (anywhere
+// except the explicit "Choose file" button) also opens the file picker.
+(function wireDropZone() {
+  const dz = document.getElementById('drop-zone');
+  if (!dz) return;
+  dz.addEventListener('click', (e) => {
+    if (e.target.closest('button')) return; // button has its own handler
+    fileInput.click();
+  });
+  dz.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); fileInput.click(); }
+  });
+  ['dragenter', 'dragover'].forEach(evt =>
+    dz.addEventListener(evt, (e) => { e.preventDefault(); dz.classList.add('drag-over'); }));
+  ['dragleave', 'dragend', 'drop'].forEach(evt =>
+    dz.addEventListener(evt, () => dz.classList.remove('drag-over')));
+  dz.addEventListener('drop', (e) => {
+    e.preventDefault();
+    const f = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
+    readXlsxFile(f);
+  });
+  // Stop the browser from navigating to a file the user dropped outside the zone.
+  window.addEventListener('dragover', (e) => e.preventDefault());
+  window.addEventListener('drop', (e) => e.preventDefault());
+})();
+
+function loadWorkbook(wb, fileName) {
+  projects = [];
+  const names = wb.SheetNames;
+  if (names.length === 0) {
+    window.__showError('Workbook has no sheets.');
+    return;
+  }
+  const sheets = names.map(n => XLSX.utils.sheet_to_json(wb.Sheets[n], { header: 1, raw: true, defval: null }));
+
+  // Process sheets in pairs: (main, timeline). Sheet names don't matter.
+  // If there's an odd number of sheets, the last is treated as main with no timeline.
+  for (let s = 0; s < sheets.length; s += 2) {
+    const main = sheets[s] || [];
+    const timeline = sheets[s + 1] || [];
+    const regionLabel = names[s] || `Sheet ${s + 1}`;
+    parseMainSheet(main, timeline, regionLabel);
+  }
+
+  if (projects.length === 0) {
+    window.__showError('No projects parsed. The first sheet should have a "Project" header and project names in column A.');
+    return;
+  }
+
+  // Apply locally-saved edits
+  const savedEdits = loadAllEdits();
+  let restoredCount = 0;
+  for (const p of projects) {
+    const e = savedEdits[projectKey(p)];
+    if (e) { applyEdits(p, e); restoredCount++; }
+  }
+
+  document.getElementById('file-status').textContent =
+    `Loaded · ${projects.length} projects · ${fileName}`;
+  let okMsg = `Loaded ${projects.length} project${projects.length === 1 ? '' : 's'} from ${fileName}`;
+  if (restoredCount > 0) okMsg += ` · restored ${restoredCount} local edit${restoredCount === 1 ? '' : 's'}`;
+  window.__showOk(okMsg);
+
+  renderSidebar();
+  const ordered = [...projects].sort((a,b) => progressPct(a) - progressPct(b));
+  if (ordered.length) selectProject(ordered[0]);
+
+  document.getElementById('empty-state').hidden = true;
+  document.getElementById('main').hidden = false;
+  document.body.classList.add('sheet-loaded');
+  // At narrow widths we open the sidebar briefly so the user can see/pick a
+  // project right after loading; selectProject above already chose the first
+  // one, so on narrow we close it back. On wide we leave it open.
+  setSidebarOpen(!isNarrowViewport());
+}
+
+function parseMainSheet(mainRows, timelineRows, regionLabel) {
+  if (!mainRows || mainRows.length === 0) return;
+  const keyByColIdx = buildPfHeaderMap(mainRows[0] || []);
+  for (let i = 1; i < mainRows.length; i++) {
+    const row = mainRows[i];
+    if (!row || row[0] == null || String(row[0]).trim() === '') continue;
+    const name = String(row[0]).trim();
+    if (looksLikeNote(name)) continue;
+    const data = {};
+    for (const c of PF_COLUMNS) data[c.key] = '';
+    for (let j = 0; j < row.length; j++) {
+      const key = keyByColIdx[j];
+      if (key) data[key] = fmtCell(row[j]);
+    }
+    // Collapse the 6 source columns into a sources array (clear the columns; we'll rebuild on output)
+    const sources = [];
+    for (const sk of SOURCE_KEYS) {
+      const v = data[sk];
+      if (v && String(v).trim()) sources.push(String(v).trim());
+      data[sk] = '';
+    }
+    const timeline = extractTimeline(timelineRows, name);
+    projects.push({ region: regionLabel, sourceRow: i + 1, name, data, timeline, sources, editing: false, completed: false });
+  }
+}
+
+function extractTimeline(sheet, projectName) {
+  if (!sheet || sheet.length === 0) return defaultTimeline();
+  const header = sheet[0] || [];
+  let col = -1;
+  const target = stripStar(projectName).toLowerCase();
+  for (let j = 1; j < header.length; j++) {
+    const h = header[j];
+    if (h == null) continue;
+    const hs = stripStar(String(h)).toLowerCase();
+    if (hs === target) { col = j; break; }
+  }
+  if (col === -1) {
+    for (let j = 1; j < header.length; j++) {
+      const h = header[j];
+      if (h == null) continue;
+      const hs = stripStar(String(h)).toLowerCase();
+      if (hs && (hs.includes(target) || target.includes(hs))) { col = j; break; }
+    }
+  }
+  if (col === -1) return defaultTimeline();
+  const events = [];
+  for (let base = 1; base + 2 < sheet.length; base += 3) {
+    const desc = fmtCell(sheet[base] && sheet[base][col]);
+    const date = fmtCell(sheet[base+1] && sheet[base+1][col]);
+    const src  = fmtCell(sheet[base+2] && sheet[base+2][col]);
+    if (events.length === 0) {
+      events.push({ kind: 'proposal', desc, date, src });
+    } else if (desc || date || src) {
+      events.push({ kind: 'dev', desc, date, src });
+    }
+  }
+  if (events.length === 0) events.push({ kind: 'proposal', desc: '', date: '', src: '' });
+  return events;
+}
+
+function defaultTimeline() {
+  return [{ kind: 'proposal', desc: '', date: '', src: '' }];
+}
+
+function buildPfHeaderMap(headerRow) {
+  const out = {};
+  const norm = (s) => String(s == null ? '' : s).trim().toLowerCase()
+    .replace(/[.,/]/g, ' ').replace(/[\s:_-]+/g, ' ').replace(/[()]/g, '').trim();
+  const HEADER_TO_KEY = {
+    'project': 'project',
+    'company': 'company',
+    'investment b$': 'investment', 'investment $b': 'investment', 'investment': 'investment',
+    'state': 'state',
+    'county': 'county',
+    'nearby communities': 'nearby',
+    'energy capacity mw': 'capacity',
+    'acreage': 'acreage',
+    'timeline start': 'timeline_start', 'timeline   start': 'timeline_start',
+    'timeline end': 'timeline_end',
+    'timeline': 'timeline_start',
+    'status': 'status',
+    'resource usage claims': 'resource_claims',
+    'energy sources': 'energy_sources',
+    'developer promises': 'developer_promises',
+    'comm concerns categories': 'concern_categories', 'community concerns': 'concern_categories',
+    'articulated concerns': 'articulated_concerns', 'individual concerns': 'articulated_concerns',
+    'comm action posture': 'action_posture', 'community action': 'action_posture',
+    'comm action intensity': 'action_intensity',
+    'comm action details': 'action_details',
+    'developer action': 'developer_action',
+    'latitude': 'latitude', 'lat': 'latitude',
+    'longitude': 'longitude', 'long': 'longitude', 'lng': 'longitude', 'lon': 'longitude',
+    'sources': 'source_0',
+    'project proposal': 'source_proposal',
+    'govt records': 'source_govt', 'government records': 'source_govt',
+    'source 3': 'source_3',
+    'source 4': 'source_4',
+    'source 5': 'source_5',
+  };
+  const usedKeys = new Set();
+  for (let j = 0; j < headerRow.length; j++) {
+    const h = norm(headerRow[j]);
+    if (!h) continue;
+    const k = HEADER_TO_KEY[h];
+    if (k && !usedKeys.has(k)) {
+      out[j] = k;
+      usedKeys.add(k);
+    }
+  }
+  const sourceOrder = ['source_0', 'source_proposal', 'source_govt', 'source_3', 'source_4', 'source_5'];
+  let sIdx = 0;
+  for (let j = 0; j < headerRow.length; j++) {
+    if (out[j]) continue;
+    while (sIdx < sourceOrder.length && usedKeys.has(sourceOrder[sIdx])) sIdx++;
+    if (sIdx < sourceOrder.length) {
+      let devActionIdx = -1;
+      for (const idx of Object.keys(out)) if (out[idx] === 'developer_action') devActionIdx = Number(idx);
+      if (devActionIdx >= 0 && j > devActionIdx) {
+        out[j] = sourceOrder[sIdx];
+        usedKeys.add(sourceOrder[sIdx]);
+        sIdx++;
+      }
+    }
+  }
+  return out;
+}
+
+// ===== Sidebar =====
+function renderTabs() {
+  const bar = document.getElementById('tab-bar');
+  if (!bar) return;
+  bar.innerHTML = '';
+
+  const regions = uniqueRegions();
+  // If activeTab isn't valid for current data, default to first region
+  if (!regions.includes(activeTab) && activeTab !== 'editing' && activeTab !== 'completed') {
+    activeTab = regions[0] || 'editing';
+  }
+
+  const tabs = [
+    ...regions.map(r => ({ id: r, label: shortRegionLabel(r),
+      count: projects.filter(p => p.region === r).length })),
+    { id: 'editing',   label: 'Editing',
+      count: projects.filter(p => p.editing).length },
+    { id: 'completed', label: 'Completed',
+      count: projects.filter(p => isCompleted(p)).length },
+  ];
+
+  tabs.forEach(t => {
+    const b = document.createElement('button');
+    b.className = 'tab-btn' + (activeTab === t.id ? ' active' : '');
+    b.dataset.tab = t.id;
+    b.innerHTML = `${escapeHtml(t.label)} <span class="count">${t.count}</span>`;
+    b.onclick = () => { activeTab = t.id; renderTabs(); renderSidebar(); };
+    bar.appendChild(b);
+  });
+}
+
+function renderSidebar() {
+  renderTabs();
+  const list = document.getElementById('sidebar-list');
+  list.innerHTML = '';
+
+  let view;
+  if (activeTab === 'editing') view = projects.filter(p => p.editing);
+  else if (activeTab === 'completed') view = projects.filter(p => isCompleted(p));
+  else view = projects.filter(p => p.region === activeTab);
+
+  // Apply search filter (matches name, company, state, county — case-insensitive)
+  const q = (searchQuery || '').trim().toLowerCase();
+  if (q) {
+    view = view.filter(p => {
+      const hay = [p.name, p.data.company, p.data.state, p.data.county]
+        .map(x => String(x || '').toLowerCase()).join(' ');
+      return hay.includes(q);
+    });
+  }
+
+  if (view.length === 0) {
+    const empty = document.createElement('div');
+    empty.className = 'empty-tab';
+    if (q) empty.textContent = `No projects match "${searchQuery}" in this tab.`;
+    else if (activeTab === 'editing') empty.textContent = 'No projects in editing yet. Start changing fields on a project to see it here.';
+    else if (activeTab === 'completed') empty.textContent = 'No fully-researched projects yet. A project lands here when every field is filled in, or when you hit Mark as Done.';
+    else empty.textContent = 'No projects in this region.';
+    list.appendChild(empty);
+    return;
+  }
+
+  // Pin any project that's actively being edited (the editing flag is set the
+  // moment a field changes — just clicking to view a project does NOT pin it).
+  // Everything else sorts by progress ascending (least-complete first).
+  view.slice()
+    .sort((a,b) => {
+      if (a.editing && !b.editing) return -1;
+      if (b.editing && !a.editing) return 1;
+      return progressPct(a) - progressPct(b);
+    })
+    .forEach(p => addProjItem(list, p));
+}
+
+// Wire the search input once at startup; it persists across re-renders.
+(function wireSearch() {
+  const s = document.getElementById('sidebar-search');
+  if (!s) return;
+  s.addEventListener('input', (e) => {
+    searchQuery = e.target.value;
+    renderSidebar();
+  });
+})();
+
+// Wire the (subtle) "Reset all" button in the header. Hidden in plain sight as
+// a ghost button; always asks to confirm before wiping localStorage.
+function handleResetAllLocal() {
+  const edits = loadAllEdits();
+  const count = Object.keys(edits).length;
+  const sheetLoaded = projects.length > 0;
+  if (count === 0 && !sheetLoaded) {
+    if (window.__showInfo) window.__showInfo('Nothing to reset.');
+    return;
+  }
+  let msg;
+  if (count > 0 && sheetLoaded) {
+    msg = `Reset ALL locally-saved edits across ${count} project${count === 1 ? '' : 's'} and unload the sheet?\n\nThis can't be undone. Your .xlsx on disk is not touched — you'll be back at the load screen.`;
+  } else if (count > 0) {
+    msg = `Reset ALL locally-saved edits across ${count} project${count === 1 ? '' : 's'}?\n\nThis can't be undone.`;
+  } else {
+    msg = `Unload the current sheet and return to the load screen?\n\nYou have no local edits, so nothing is lost. Your .xlsx on disk is not touched.`;
+  }
+  if (!confirm(msg)) return;
+
+  // 1. wipe localStorage
+  try { localStorage.removeItem(LS_KEY); } catch (e) { console.warn('localStorage clear failed', e); }
+
+  // 2. clear in-memory app state
+  projects = [];
+  selected = null;
+  activeTab = null;
+  searchQuery = '';
+
+  // 3. snap UI back to the load screen
+  const searchEl = document.getElementById('sidebar-search');
+  if (searchEl) searchEl.value = '';
+  const tabBar = document.getElementById('tab-bar');
+  if (tabBar) tabBar.innerHTML = '';
+  const sidebarList = document.getElementById('sidebar-list');
+  if (sidebarList) sidebarList.innerHTML = '';
+  const formPanel = document.getElementById('form-panel');
+  if (formPanel) formPanel.innerHTML = '';
+  document.getElementById('main').hidden = true;
+  document.body.classList.remove('sheet-loaded');
+  const empty = document.getElementById('empty-state');
+  empty.hidden = false;
+  const emptyTitle = document.getElementById('empty-title');
+  if (emptyTitle) { emptyTitle.textContent = 'Load your database to begin'; emptyTitle.classList.remove('continue'); }
+  document.getElementById('file-status').textContent = 'No sheet loaded';
+  const fileInput = document.getElementById('file-input');
+  if (fileInput) fileInput.value = '';
+
+  if (window.__showOk) {
+    const parts = [];
+    if (count > 0) parts.push(`cleared edits for ${count} project${count === 1 ? '' : 's'}`);
+    if (sheetLoaded) parts.push('unloaded sheet');
+    window.__showOk('Reset · ' + parts.join(' · '));
+  }
+}
+(function wireResetAll() {
+  const b = document.getElementById('reset-all-local');
+  if (b) b.onclick = handleResetAllLocal;
+})();
+
+function addProjItem(parent, p) {
+  const el = document.createElement('div');
+  el.className = 'proj';
+  if (selected && selected === p) el.classList.add('active');
+  const pct = progressPct(p);
+  const color = progressColor(pct);
+  const isDone = isCompleted(p);
+  const check = isDone ? '<span class="done-check" title="Research complete">✓</span> ' : '';
+  const editTag = p.editing ? '<span class="editing-tag">Editing</span>' : '';
+  el.innerHTML = `
+    <div class="pname">${check}${escapeHtml(stripStar(p.name))}</div>
+    <div class="pmeta"><span>${pct}% · ${escapeHtml(p.data.state || '—')}</span>${editTag}</div>
+    <div class="pbar"><div class="pbar-fill" style="width:${pct}%; background:${color};"></div></div>
+  `;
+  el.onclick = () => selectProject(p);
+  parent.appendChild(el);
+}
+
+// ===== Form =====
+function selectProject(p) {
+  selected = p;
+  renderSidebar();
+  renderForm();
+  updatePreviews();
+  // On narrow viewports the sidebar is an overlay; close it once a project is
+  // chosen so the form gets the full screen.
+  if (isNarrowViewport()) setSidebarOpen(false);
+}
+
+// ===== Sidebar open/closed state =====
+const SIDEBAR_BREAKPOINT = 900;
+function isNarrowViewport() { return window.innerWidth < SIDEBAR_BREAKPOINT; }
+function setSidebarOpen(open) {
+  document.body.classList.toggle('sidebar-closed', !open);
+  const btn = document.getElementById('toggle-sidebar');
+  if (btn) btn.setAttribute('aria-expanded', String(!!open));
+}
+(function wireSidebarToggle() {
+  // Initial state: open on wide screens, closed on narrow.
+  setSidebarOpen(!isNarrowViewport());
+  const btn = document.getElementById('toggle-sidebar');
+  if (btn) btn.addEventListener('click', () => {
+    setSidebarOpen(document.body.classList.contains('sidebar-closed'));
+  });
+  const backdrop = document.getElementById('sidebar-backdrop');
+  if (backdrop) backdrop.addEventListener('click', () => setSidebarOpen(false));
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && isNarrowViewport()
+        && !document.body.classList.contains('sidebar-closed')) {
+      setSidebarOpen(false);
+    }
+  });
+  // Snap to the natural default whenever the viewport crosses the breakpoint.
+  let lastWasNarrow = isNarrowViewport();
+  window.addEventListener('resize', () => {
+    const nowNarrow = isNarrowViewport();
+    if (nowNarrow !== lastWasNarrow) {
+      setSidebarOpen(!nowNarrow);
+      lastWasNarrow = nowNarrow;
+    }
+  });
+})();
+
+function renderFormHeader() {
+  const fh = document.getElementById('form-header');
+  if (!fh) return;
+  const right = fh.querySelector('.fh-right');
+  const editingControls = selected.editing
+    ? `<span class="badge editing">Editing</span> <button class="small" id="mark-done">Mark as Done</button>`
+    : '';
+  right.innerHTML = `
+    ${editingControls}
+    <button class="small" id="clear-local-top" title="Clear locally-saved edits for this project (after you've pasted into the sheet)">Clear local</button>
+    <span class="badge">${escapeHtml(selected.region)} · row ${selected.sourceRow}</span>
+  `;
+  const md = document.getElementById('mark-done');
+  if (md) md.onclick = () => {
+    selected.editing = false;
+    selected.completed = true;
+    renderSidebar();
+    renderFormHeader();
+    persistSelected();
+    toast('Marked researched — moved to Completed tab');
+  };
+  const cl = document.getElementById('clear-local-top');
+  if (cl) cl.onclick = handleClearLocal;
+}
+
+function handleClearLocal() {
+  if (!selected) return;
+  if (!confirm(`Clear locally-saved edits for "${stripStar(selected.name)}"?\n\nThe sheet values shown will revert to whatever was in the .xlsx when you loaded it. Do this after you've pasted the row back into the sheet so future loads start fresh.`)) return;
+  clearEditsForSelected();
+  selected.editing = false;
+  selected.completed = false;
+  renderSidebar();
+  renderFormHeader();
+  toast('Cleared local edits · reload the .xlsx to see sheet values');
+}
+
+function renderForm() {
+  const panel = document.getElementById('form-panel');
+  const d = selected.data;
+
+  const existingConcerns = (d.concern_categories || '').split(',').map(s => s.trim()).filter(Boolean);
+  const concernSet = new Set();
+  for (const c of CONCERN_CATEGORIES) {
+    if (existingConcerns.some(e => e.toLowerCase() === c.toLowerCase())) concernSet.add(c);
+  }
+  const extraConcerns = existingConcerns.filter(e =>
+    !CONCERN_CATEGORIES.some(c => c.toLowerCase() === e.toLowerCase())
+  ).join(', ');
+
+  panel.innerHTML = `
+    <div class="form-header" id="form-header">
+      <div class="fh-left">
+        <h2><input id="f-project" value="${escapeAttr(selected.name)}" /></h2>
+      </div>
+      <div class="fh-right"></div>
+    </div>
+
+    <h3 class="section-title">Basics</h3>
+    <div class="grid-2">
+      <div class="field">
+        <label>Company</label>
+        <input id="f-company" value="${escapeAttr(d.company)}">
+      </div>
+      <div class="field">
+        <label>Investment ($B)</label>
+        <input id="f-investment" value="${escapeAttr(d.investment)}" placeholder="e.g. 1.5">
+      </div>
+      <div class="field">
+        <label>State</label>
+        <select id="f-state">
+          <option value="">— select —</option>
+          ${US_STATES.map(s => `<option ${normEq(d.state, s) ? 'selected' : ''}>${s}</option>`).join('')}
+          ${d.state && !US_STATES.some(s => normEq(d.state, s)) ? `<option selected>${escapeAttr(d.state)}</option>` : ''}
+        </select>
+      </div>
+      <div class="field">
+        <label>County</label>
+        <input id="f-county" value="${escapeAttr(d.county)}">
+      </div>
+      <div class="field">
+        <label>Nearby Communities</label>
+        <div class="hint">Municipality (city, town) with jurisdiction.</div>
+        <input id="f-nearby" value="${escapeAttr(d.nearby)}">
+      </div>
+      <div class="field">
+        <label>Energy Capacity (MW)</label>
+        <div class="hint">1 GW = 1000 MW.</div>
+        <input id="f-capacity" value="${escapeAttr(d.capacity)}">
+      </div>
+      <div class="field">
+        <label>Acreage</label>
+        <input id="f-acreage" value="${escapeAttr(d.acreage)}">
+      </div>
+      <div class="field">
+        <label>Status</label>
+        <select id="f-status">
+          <option value="">— select —</option>
+          ${(() => { const opts = statusOptions(); return opts.map(s => `<option ${normEq(d.status, s) ? 'selected' : ''}>${escapeAttr(s)}</option>`).join('') +
+            (d.status && !opts.some(s => normEq(d.status, s)) ? `<option selected>${escapeAttr(d.status)}</option>` : ''); })()}
+        </select>
+      </div>
+      <div class="field">
+        <label>Timeline - Start</label>
+        <div class="hint">Year construction began. YYYY-MM-DD or YYYY.</div>
+        <input id="f-timeline_start" value="${escapeAttr(d.timeline_start)}" placeholder="YYYY-MM-DD or YYYY">
+      </div>
+      <div class="field">
+        <label>Timeline - End</label>
+        <div class="hint">Projected completion. Add asterisk * if delayed.</div>
+        <input id="f-timeline_end" value="${escapeAttr(d.timeline_end)}" placeholder="YYYY-MM-DD or YYYY">
+      </div>
+      <div class="field">
+        <label>Latitude</label>
+        <div class="hint">Decimal degrees (e.g. 40.4406). Used for the map view.</div>
+        <input id="f-latitude" value="${escapeAttr(d.latitude)}" placeholder="00.0000" inputmode="decimal">
+      </div>
+      <div class="field">
+        <label>Longitude</label>
+        <div class="hint">Decimal degrees, negative for W (e.g. -79.9959).</div>
+        <input id="f-longitude" value="${escapeAttr(d.longitude)}" placeholder="00.0000" inputmode="decimal">
+      </div>
+      <div class="field" id="map-preview-wrap" style="grid-column: span 2;"></div>
+    </div>
+
+    <h3 class="section-title">Resources &amp; promises</h3>
+    <div class="grid-2">
+      <div class="field" style="grid-column: span 2;">
+        <label>Resource Usage Claims</label>
+        <div class="hint">Developer statements on resource use or energy sources.</div>
+        <textarea id="f-resource_claims">${escapeHtml(d.resource_claims)}</textarea>
+      </div>
+      <div class="field">
+        <label>Energy Sources</label>
+        <div class="hint">Natural gas, coal, solar, wind, nuclear, grid, etc.</div>
+        <input id="f-energy_sources" value="${escapeAttr(d.energy_sources)}">
+      </div>
+      <div class="field">
+        <label>Developer Promises</label>
+        <div class="hint">Jobs, infrastructure, tax revenue, etc.</div>
+        <input id="f-developer_promises" value="${escapeAttr(d.developer_promises)}">
+      </div>
+    </div>
+
+    <h3 class="section-title">Community response</h3>
+
+    <div class="field" style="margin-bottom: 10px;">
+      <label>Concerns - Categories</label>
+      <div class="hint">Pick all that apply. Definitions: Land/Water/Electricity/Climate impacts; Individual economic = households &amp; consumers; Governmental economic = public budgets; QOL = day-to-day living conditions (noise, light).</div>
+      <div class="checks" id="f-concerns">
+        ${CONCERN_CATEGORIES.map(c => `
+          <label class="check ${concernSet.has(c) ? 'on' : ''}">
+            <input type="checkbox" data-concern="${escapeAttr(c)}" ${concernSet.has(c) ? 'checked' : ''}>${c}
+          </label>`).join('')}
+      </div>
+      ${extraConcerns ? `<div class="hint-after">Other (from existing data, kept as-is): ${escapeHtml(extraConcerns)}</div>` : ''}
+    </div>
+
+    <div class="field" style="margin-bottom: 10px;">
+      <label>Articulated Concerns</label>
+      <div class="hint">Format: <code>Community: ___; Individual: ___</code>. "We / city / community" → Community. "I / my home" → Individual.</div>
+      <textarea id="f-articulated_concerns">${escapeHtml(d.articulated_concerns)}</textarea>
+    </div>
+
+    <div class="grid-2">
+      <div class="field">
+        <label>Action - Posture</label>
+        <div class="hint">Neutral = allowing to proceed; Negative = pushing back; Positive = embracing.</div>
+        <select id="f-action_posture">
+          <option value="">— select —</option>
+          ${POSTURE_VALUES.map(s => `<option ${normEq(d.action_posture, s) ? 'selected' : ''}>${s}</option>`).join('')}
+          ${d.action_posture && !POSTURE_VALUES.some(s => normEq(d.action_posture, s)) ? `<option selected>${escapeAttr(d.action_posture)}</option>` : ''}
+        </select>
+      </div>
+      <div class="field">
+        <label>Action - Intensity</label>
+        <div class="hint">None / Low (few individuals) / Moderate (formal channels) / High (broad mobilization).</div>
+        <select id="f-action_intensity">
+          <option value="">— select —</option>
+          ${INTENSITY_VALUES.map(s => `<option ${normEq(d.action_intensity, s) ? 'selected' : ''}>${s}</option>`).join('')}
+          ${d.action_intensity && !INTENSITY_VALUES.some(s => normEq(d.action_intensity, s)) ? `<option selected>${escapeAttr(d.action_intensity)}</option>` : ''}
+        </select>
+      </div>
+      <div class="field" style="grid-column: span 2;">
+        <label>Community Action - Details</label>
+        <div class="hint">Hearings, petitions, lawsuits, town council votes, etc. Blank if no actions taken.</div>
+        <textarea id="f-action_details">${escapeHtml(d.action_details)}</textarea>
+      </div>
+      <div class="field" style="grid-column: span 2;">
+        <label>Developer Action</label>
+        <div class="hint">Actions developers took in response to community action.</div>
+        <textarea id="f-developer_action">${escapeHtml(d.developer_action)}</textarea>
+      </div>
+    </div>
+
+    <h3 class="section-title">Sources</h3>
+    <div id="sources-list"></div>
+    <button id="add-source" style="margin-top: 4px;">+ Add source</button>
+
+    <h3 class="section-title">Timeline · paired timeline sheet</h3>
+    <div id="timeline-list"></div>
+    <button id="add-event" style="margin-top: 4px;">+ Add event</button>
+
+    <div class="inline-previews">
+      <div class="preview-card">
+        <div class="pc-head">
+          <span class="pc-label">Main row</span>
+          <button id="copy-row">Copy row</button>
+        </div>
+        <div class="pc-content" id="row-preview">—</div>
+      </div>
+      <div class="preview-card">
+        <div class="pc-head">
+          <span class="pc-label">Timeline column</span>
+          <button id="copy-timeline">Copy column</button>
+        </div>
+        <div class="pc-content" id="timeline-preview">—</div>
+      </div>
+    </div>
+  `;
+
+  renderFormHeader();
+  renderTimelineList();
+  renderSourcesList();
+  renderMapPreview();
+  attachListeners();
+  attachCopyButtons();
+}
+
+function renderTimelineList() {
+  const list = document.getElementById('timeline-list');
+  list.innerHTML = '';
+  selected.timeline.forEach((ev, idx) => {
+    const wrap = document.createElement('div');
+    wrap.className = 'timeline-event' + (ev.kind === 'proposal' ? ' proposal' : '');
+    const title = ev.kind === 'proposal' ? 'Proposal / announcement' : `Event ${idx}`;
+    wrap.innerHTML = `
+      <div class="te-head">
+        <div class="te-title">${title}</div>
+        ${ev.kind === 'proposal' ? '' : `<button class="ghost" data-remove="${idx}" title="Remove event">✕</button>`}
+      </div>
+      <div class="timeline-grid">
+        <input data-te="${idx}" data-field="desc" value="${escapeAttr(ev.desc)}" placeholder="Event description">
+        <input data-te="${idx}" data-field="date" value="${escapeAttr(ev.date)}" placeholder="YYYY-MM-DD">
+        <input data-te="${idx}" data-field="src"  value="${escapeAttr(ev.src)}"  placeholder="Source URL">
+      </div>
+    `;
+    list.appendChild(wrap);
+  });
+
+  list.querySelectorAll('input[data-te]').forEach(inp => {
+    inp.addEventListener('input', (e) => {
+      const i = Number(e.target.dataset.te);
+      const f = e.target.dataset.field;
+      selected.timeline[i][f] = e.target.value;
+      updatePreviews();
+      markEditing();
+    });
+  });
+  list.querySelectorAll('button[data-remove]').forEach(btn => {
+    btn.onclick = (e) => {
+      const i = Number(e.currentTarget.dataset.remove);
+      selected.timeline.splice(i, 1);
+      renderTimelineList();
+      updatePreviews();
+      markEditing();
+    };
+  });
+  document.getElementById('add-event').onclick = () => {
+    selected.timeline.push({ kind: 'dev', desc: '', date: '', src: '' });
+    renderTimelineList();
+    updatePreviews();
+    markEditing();
+  };
+}
+
+function renderSourcesList() {
+  const list = document.getElementById('sources-list');
+  list.innerHTML = '';
+  if (!Array.isArray(selected.sources)) selected.sources = [''];
+  if (selected.sources.length === 0) selected.sources.push('');
+  // First entry → Project Proposal column; SOURCES: column is intentionally left blank.
+  const labels = ['Project Proposal',
+                  'Govt Records',
+                  'Source 3 (local news / other)',
+                  'Source 4',
+                  'Source 5'];
+  selected.sources.forEach((url, idx) => {
+    const wrap = document.createElement('div');
+    wrap.className = 'source-entry';
+    const label = labels[idx] || `Source ${idx + 1} (overflow — appends to Source 5 column)`;
+    wrap.innerHTML = `
+      <div class="se-head">
+        <div class="se-title">${label}</div>
+        ${selected.sources.length > 1 ? `<button class="ghost" data-removesrc="${idx}" title="Remove source">✕</button>` : ''}
+      </div>
+      <input data-src="${idx}" value="${escapeAttr(url)}" placeholder="URL">
+    `;
+    list.appendChild(wrap);
+  });
+  list.querySelectorAll('input[data-src]').forEach(inp => {
+    inp.addEventListener('input', (e) => {
+      const i = Number(e.target.dataset.src);
+      selected.sources[i] = e.target.value;
+      updatePreviews();
+      markEditing();
+      renderSidebar();
+    });
+  });
+  list.querySelectorAll('button[data-removesrc]').forEach(btn => {
+    btn.onclick = (e) => {
+      const i = Number(e.currentTarget.dataset.removesrc);
+      selected.sources.splice(i, 1);
+      if (selected.sources.length === 0) selected.sources.push('');
+      renderSourcesList();
+      updatePreviews();
+      markEditing();
+      renderSidebar();
+    };
+  });
+  document.getElementById('add-source').onclick = () => {
+    selected.sources.push('');
+    renderSourcesList();
+    updatePreviews();
+    markEditing();
+    renderSidebar();
+  };
+}
+
+function renderMapPreview() {
+  const wrap = document.getElementById('map-preview-wrap');
+  if (!wrap) return;
+  const lat = parseFloat(selected.data.latitude);
+  const lon = parseFloat(selected.data.longitude);
+  if (!isFinite(lat) || !isFinite(lon) || (lat === 0 && lon === 0) ||
+      lat < -90 || lat > 90 || lon < -180 || lon > 180) {
+    wrap.innerHTML = '';
+    return;
+  }
+  const delta = 0.06;
+  const bbox = [lon - delta, lat - delta, lon + delta, lat + delta].join(',');
+  const embed = `https://www.openstreetmap.org/export/embed.html?bbox=${bbox}&layer=mapnik&marker=${lat},${lon}`;
+  const link = `https://www.openstreetmap.org/?mlat=${lat}&mlon=${lon}#map=11/${lat}/${lon}`;
+  wrap.innerHTML = `
+    <label>Map preview</label>
+    <div class="map-preview">
+      <iframe src="${embed}" loading="lazy"></iframe>
+      <div class="mp-foot">
+        <span>${fmtCoord(lat)}, ${fmtCoord(lon)}</span>
+        <a href="${link}" target="_blank" rel="noopener">Open in OpenStreetMap ↗</a>
+      </div>
+    </div>
+  `;
+}
+
+function attachListeners() {
+  const ids = [
+    'project','company','investment','state','county','nearby','capacity','acreage',
+    'timeline_start','timeline_end','status','resource_claims','energy_sources',
+    'developer_promises','articulated_concerns','action_posture','action_intensity',
+    'action_details','developer_action','latitude','longitude',
+  ];
+  ids.forEach(id => {
+    const el = document.getElementById('f-' + id);
+    if (!el) return;
+    const evName = (el.tagName === 'SELECT') ? 'change' : 'input';
+    el.addEventListener(evName, () => {
+      if (id === 'project') selected.name = el.value;
+      else selected.data[id] = el.value;
+      if (id === 'latitude' || id === 'longitude') renderMapPreview();
+      renderSidebar();
+      updatePreviews();
+      markEditing();
+    });
+    // also catch typed input on select (rare but harmless)
+    if (el.tagName === 'SELECT') {
+      el.addEventListener('input', () => {
+        selected.data[id] = el.value;
+        renderSidebar();
+        updatePreviews();
+        markEditing();
+      });
+    }
+  });
+
+  document.querySelectorAll('#f-concerns input[type=checkbox]').forEach(cb => {
+    cb.addEventListener('change', () => {
+      const lbl = cb.closest('label');
+      lbl.classList.toggle('on', cb.checked);
+      updateConcernsData();
+      updatePreviews();
+      renderSidebar();
+      markEditing();
+    });
+  });
+}
+
+function updateConcernsData() {
+  const checked = [...document.querySelectorAll('#f-concerns input:checked')]
+    .map(cb => cb.dataset.concern);
+  const existing = (selected.data.concern_categories || '').split(',').map(s => s.trim()).filter(Boolean);
+  const extras = existing.filter(e =>
+    !CONCERN_CATEGORIES.some(c => c.toLowerCase() === e.toLowerCase())
+  );
+  selected.data.concern_categories = [...checked, ...extras].join(', ');
+}
+
+// ===== Preview / copy =====
+function updatePreviews() {
+  document.getElementById('row-preview').textContent = buildRow();
+  document.getElementById('timeline-preview').textContent = buildTimelineColumn(true);
+}
+
+function buildRow() {
+  const d = { ...selected.data };
+  d.project = selected.name;
+  // SOURCES: column (source_0) is a historical label column and is always left blank.
+  // User-entered sources fill source_proposal → source_5 in order; since Source 5
+  // is the last column, any extras beyond that spill into their own trailing cells.
+  for (const sk of SOURCE_KEYS) d[sk] = '';
+  const targetKeys = SOURCE_KEYS.filter(k => k !== 'source_0');
+  const srcs = (selected.sources || []).map(s => String(s || '').trim()).filter(Boolean);
+  const overflow = [];
+  for (let i = 0; i < srcs.length; i++) {
+    if (i < targetKeys.length) {
+      d[targetKeys[i]] = srcs[i];
+    } else {
+      overflow.push(srcs[i]);
+    }
+  }
+  const cells = PF_COLUMNS.map(c => {
+    let v = d[c.key];
+    if (v == null) v = '';
+    return String(v).replace(/\t/g, ' ').replace(/\n/g, ' ').trim();
+  });
+  for (const extra of overflow) {
+    cells.push(extra.replace(/\t/g, ' ').replace(/\n/g, ' ').trim());
+  }
+  return cells.join('\t');
+}
+
+function buildTimelineColumn(asPreview) {
+  const rows = [];
+  selected.timeline.forEach((ev) => {
+    rows.push(ev.desc || '');
+    rows.push(ev.date || '');
+    rows.push(ev.src || '');
+  });
+  if (asPreview) {
+    return rows.slice(0, 8).map((r, i) => r || (i < rows.length - 1 ? '·' : '')).join(' ↵ ') + (rows.length > 8 ? ' …' : '');
+  }
+  return rows.join('\n');
+}
+
+// Write both text/plain (TSV) and text/html (table) to the clipboard so that
+// Excel / Sheets reliably split cells instead of jamming everything into one.
+function escapeHtml(s) {
+  return String(s == null ? '' : s)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
+function rowsToHtmlTable(rows2d) {
+  const trs = rows2d.map(r =>
+    '<tr>' + r.map(c => '<td>' + escapeHtml(c).replace(/\n/g, '<br>') + '</td>').join('') + '</tr>'
+  ).join('');
+  return '<table>' + trs + '</table>';
+}
+async function copyTabular(tsv, rows2d, okMsg) {
+  const html = rowsToHtmlTable(rows2d);
+  try {
+    if (window.ClipboardItem && navigator.clipboard && navigator.clipboard.write) {
+      const item = new ClipboardItem({
+        'text/plain': new Blob([tsv], { type: 'text/plain' }),
+        'text/html':  new Blob([html], { type: 'text/html'  }),
+      });
+      await navigator.clipboard.write([item]);
+    } else {
+      await navigator.clipboard.writeText(tsv);
+    }
+    toast(okMsg);
+  } catch (err) {
+    try { await navigator.clipboard.writeText(tsv); toast(okMsg); }
+    catch (e2) { if (window.__showError) window.__showError('Could not copy: ' + (e2 && e2.message || e2)); }
+  }
+}
+
+function attachCopyButtons() {
+  document.getElementById('copy-row').onclick = () => {
+    if (!selected) return;
+    const tsv = buildRow();
+    const cells = tsv.split('\t');
+    copyTabular(tsv, [cells], 'Row copied · paste into the main sheet');
+  };
+  document.getElementById('copy-timeline').onclick = () => {
+    if (!selected) return;
+    const text = buildTimelineColumn(false);
+    const rows2d = text.split('\n').map(line => [line]);
+    copyTabular(text, rows2d, 'Timeline column copied · paste into target column of timeline sheet');
+  };
+}
+
+// ===== Initial empty-state messaging =====
+(function initEmptyState() {
+  const title = document.getElementById('empty-title');
+  if (title && hasAnyEdits()) {
+    title.textContent = 'Load database to continue!';
+    title.classList.add('continue');
+  }
+})();
+
+// ===== Utilities =====
+function toast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(toast._h);
+  toast._h = setTimeout(() => t.classList.remove('show'), 2200);
+}
+function escapeHtml(s) {
+  if (s == null) return '';
+  return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]);
+}
+function escapeAttr(s) { return escapeHtml(s); }
+function normEq(a, b) {
+  if (a == null || b == null) return false;
+  return String(a).trim().toLowerCase() === String(b).trim().toLowerCase();
+}
+// Coordinate preview format: NN.NNNN (or NNN.NNNN for big longitudes), sign preserved.
+function fmtCoord(n) {
+  if (!isFinite(n)) return '';
+  const sign = n < 0 ? '-' : '';
+  const [intP, fracP] = Math.abs(n).toFixed(4).split('.');
+  return sign + intP.padStart(2, '0') + '.' + fracP;
+}
+</script>
+
+</body>
+</html>
