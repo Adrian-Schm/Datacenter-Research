@@ -381,7 +381,7 @@ const PF_COLUMNS = [
   { key: 'developer_action', label: 'Developer Action' },
   { key: 'latitude',         label: 'Latitude' },
   { key: 'longitude',        label: 'Longitude' },
-  { key: 'source_0',         label: 'SOURCES:' },
+  { key: 'source_0',         label: 'Month Recorded' },
   { key: 'source_proposal',  label: 'Project Proposal' },
   { key: 'source_govt',      label: 'Govt Records' },
   { key: 'source_3',         label: 'Source 3' },
@@ -761,7 +761,7 @@ function buildPfHeaderMap(headerRow) {
     'developer action': 'developer_action',
     'latitude': 'latitude', 'lat': 'latitude',
     'longitude': 'longitude', 'long': 'longitude', 'lng': 'longitude', 'lon': 'longitude',
-    'sources': 'source_0',
+    'month recorded': 'source_0', 'sources': 'source_0',
     'project proposal': 'source_proposal',
     'govt records': 'source_govt', 'government records': 'source_govt',
     'source 3': 'source_3',
@@ -1198,6 +1198,10 @@ function renderForm() {
     </div>
 
     <h3 class="section-title">Sources</h3>
+    <div class="field" style="max-width: 220px; margin-bottom: 8px;">
+      <label>Month Recorded</label>
+      <input id="f-month_recorded" type="text" placeholder="e.g. March 2024" value="${escapeAttr(d.month_recorded || '')}">
+    </div>
     <div id="sources-list"></div>
     <button id="add-source" style="margin-top: 4px;">+ Add source</button>
 
@@ -1283,7 +1287,7 @@ function renderSourcesList() {
   list.innerHTML = '';
   if (!Array.isArray(selected.sources)) selected.sources = [''];
   if (selected.sources.length === 0) selected.sources.push('');
-  // First entry → Project Proposal column; SOURCES: column is intentionally left blank.
+  // First entry → Project Proposal column; Month Recorded (source_0) is handled separately above.
   const labels = ['Project Proposal',
                   'Govt Records',
                   'Source 3 (local news / other)',
@@ -1362,7 +1366,7 @@ function attachListeners() {
     'project','company','investment','state','county','nearby','capacity','acreage',
     'timeline_start','timeline_end','status','resource_claims','energy_sources',
     'developer_promises','articulated_concerns','action_posture','action_intensity',
-    'action_details','developer_action','latitude','longitude',
+    'action_details','developer_action','latitude','longitude','month_recorded',
   ];
   ids.forEach(id => {
     const el = document.getElementById('f-' + id);
@@ -1418,10 +1422,10 @@ function updatePreviews() {
 function buildRow() {
   const d = { ...selected.data };
   d.project = selected.name;
-  // SOURCES: column (source_0) is a historical label column and is always left blank.
-  // User-entered sources fill source_proposal → source_5 in order; since Source 5
-  // is the last column, any extras beyond that spill into their own trailing cells.
+  // Month Recorded goes in source_0; user-entered sources fill source_proposal → source_5
+  // in order; any extras beyond source_5 spill into trailing cells.
   for (const sk of SOURCE_KEYS) d[sk] = '';
+  d.source_0 = String(d.month_recorded || '').trim();
   const targetKeys = SOURCE_KEYS.filter(k => k !== 'source_0');
   const srcs = (selected.sources || []).map(s => String(s || '').trim()).filter(Boolean);
   const overflow = [];
